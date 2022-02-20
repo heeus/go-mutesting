@@ -1,4 +1,4 @@
-module github.com/ivvist/go-mutesting
+module github.com/heeus/go-mutesting
 
 go 1.17
 
