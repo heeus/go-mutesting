@@ -4,14 +4,25 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/avito-tech/go-mutesting/internal/models"
 	"io"
 	"io/ioutil"
 	"os"
 	"testing"
 
+	"github.com/heeus/go-mutesting/internal/models"
+
 	"github.com/stretchr/testify/assert"
 )
+
+func TestMainSimple2(t *testing.T) {
+	testMain(
+		t,
+		"../../example2",
+		[]string{"--exec-timeout", "1"},
+		returnOk,
+		"The mutation score is 0.000000 (0 passed, 6 failed, 0 duplicated, 0 skipped, total is 6)",
+	)
+}
 
 func TestMainSimple(t *testing.T) {
 	testMain(

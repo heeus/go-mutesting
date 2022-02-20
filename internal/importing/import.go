@@ -24,6 +24,8 @@ var buildContext = build.Default
 
 var (
 	goroot       = filepath.Clean(runtime.GOROOT())
+//	gopath	     = "C:/Users/ivvis/go/"                           
+//	gorootSrcPkg = filepath.Join(gopath, "pkg/mod/cache/download/")
 	gorootSrcPkg = filepath.Join(goroot, "src/pkg")
 )
 

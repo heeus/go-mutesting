@@ -10,7 +10,6 @@ import (
 	"go/printer"
 	"go/token"
 	"go/types"
-	"gopkg.in/yaml.v3"
 	"io"
 	"io/ioutil"
 	"log"
@@ -21,10 +20,11 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/avito-tech/go-mutesting/internal/importing"
-	"github.com/avito-tech/go-mutesting/internal/models"
+	"gopkg.in/yaml.v3"
+
+	"github.com/heeus/go-mutesting/internal/importing"
+	"github.com/heeus/go-mutesting/internal/models"
 	"github.com/jessevdk/go-flags"
-	"github.com/zimmski/osutil"
 
 	"github.com/avito-tech/go-mutesting"
 	"github.com/avito-tech/go-mutesting/astutil"
@@ -126,6 +126,34 @@ func mainCmd(args []string) int {
 	}
 
 	files := importing.FilesOfArgs(opts.Remaining.Targets, opts)
+
+	var entry string
+	if len(files) == 0 {
+		var arg string
+		for _, ar := range args {
+			if strings.HasSuffix(ar, "/...") {
+				arg = ar
+				break
+			}
+		}
+		if len(arg) > 0 {
+			arg = "https://" + strings.TrimSuffix(arg, "/...")
+			str := strings.Split(arg, "/")
+			if len(str) > 0 {
+				entry = str[len(str)-1] + "_mut"
+			}
+			os.Remove(entry)
+			goTestCmd := exec.Command("git", "clone", arg, entry)
+			goTestCmd.Env = os.Environ()
+
+			_, err := goTestCmd.CombinedOutput()
+			if err == nil {
+				os.Chdir(entry)
+				files = importing.FilesOfArgs([]string{}, opts)
+			}
+		}
+	}
+
 	if len(files) == 0 {
 		return exitError("Could not find any suitable Go source files")
 	}
@@ -226,7 +254,7 @@ MUTATOR:
 		tmpFile := tmpDir + "/" + file
 
 		originalFile := fmt.Sprintf("%s.original", tmpFile)
-		err = osutil.CopyFile(file, originalFile)
+		err = copyFile(file, originalFile)
 		if err != nil {
 			panic(err)
 		}
@@ -454,7 +482,7 @@ func mutateExec(
 		if err != nil {
 			panic(err)
 		}
-		err = osutil.CopyFile(mutationFile, file)
+		err = copyFile(mutationFile, file)
 		if err != nil {
 			panic(err)
 		}
@@ -464,6 +492,7 @@ func mutateExec(
 			pkgName += "/..."
 		}
 
+		debug(opts, "Copied to test: "+mutationFile+","+file)
 		goTestCmd := exec.Command("go", "test", "-timeout", fmt.Sprintf("%ds", opts.Exec.Timeout), pkgName)
 		goTestCmd.Env = os.Environ()
 
@@ -585,4 +614,40 @@ func saveAST(mutationBlackList map[string]struct{}, file string, fset *token.Fil
 	}
 
 	return checksum, false, nil
+}
+
+func copyFile(src string, dst string) (err error) {
+	s, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		e := s.Close()
+		if err == nil {
+			err = e
+		}
+	}()
+
+	d, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		e := d.Close()
+		if err == nil {
+			err = e
+		}
+	}()
+
+	_, err = io.Copy(d, s)
+	if err != nil {
+		return err
+	}
+
+	i, err := os.Stat(src)
+	if err != nil {
+		return err
+	}
+
+	return os.Chmod(dst, i.Mode())
 }
